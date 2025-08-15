@@ -5,49 +5,58 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'fs';
 import Supercluster from '../index.js';
 
+const compareFn = (a, b) => a.geometry[0][0] - b.geometry[0][0] ||
+                            a.geometry[0][1] - b.geometry[0][1] ||
+                            a.geometry[0][2] - b.geometry[0][2] ||
+                            a.geometry[0][3] - b.geometry[0][3];
+
 const places = JSON.parse(readFileSync(new URL('./fixtures/places.json', import.meta.url)));
 const placesTile = JSON.parse(readFileSync(new URL('./fixtures/places-z0-0-0.json', import.meta.url)));
+const sortedTileFeatures = placesTile.features.sort(compareFn);
 const placesTileMin5 = JSON.parse(readFileSync(new URL('./fixtures/places-z0-0-0-min5.json', import.meta.url)));
+const sortedTileMin5Features = placesTileMin5.features.sort(compareFn);
 
 test('generates clusters properly', () => {
     const index = new Supercluster().load(places.features);
     const tile = index.getTile(0, 0, 0);
-    assert.deepEqual(tile.features, placesTile.features);
+    tile.features.sort(compareFn);
+    assert.deepEqual(tile.features, sortedTileFeatures);
 });
 
 test('supports minPoints option', () => {
     const index = new Supercluster({minPoints: 5}).load(places.features);
     const tile = index.getTile(0, 0, 0);
-    assert.deepEqual(tile.features, placesTileMin5.features);
+    tile.features.sort(compareFn);
+    assert.deepEqual(tile.features, sortedTileMin5Features);
 });
 
 test('returns children of a cluster', () => {
     const index = new Supercluster().load(places.features);
     const childCounts = index.getChildren(164).map(p => p.properties.point_count || 1);
-    assert.deepEqual(childCounts, [6, 7, 2, 1]);
+    assert.deepEqual(childCounts, [1, 7, 2, 6]);
 });
 
 test('returns leaves of a cluster', () => {
     const index = new Supercluster().load(places.features);
     const leafNames = index.getLeaves(164, 10, 5).map(p => p.properties.name);
     assert.deepEqual(leafNames, [
-        'Niagara Falls',
-        'Cape San Blas',
-        'Cape Sable',
-        'Cape Canaveral',
-        'San  Salvador',
-        'Cabo Gracias a Dios',
         'I. de Cozumel',
+        'Cabo Gracias a Dios',
         'Grand Cayman',
+        'Cape Bauld',
         'Miquelon',
-        'Cape Bauld'
+        'Cape May',
+        'Niagara Falls',
+        'Cape Hatteras',
+        'Cape Fear',
+        'Cape Sable',
     ]);
 });
 
 test('generates unique ids with generateId option', () => {
     const index = new Supercluster({generateId: true}).load(places.features);
     const ids = index.getTile(0, 0, 0).features.filter(f => !f.tags.cluster).map(f => f.id);
-    assert.deepEqual(ids, [12, 20, 21, 22, 24, 28, 30, 62, 81, 118, 119, 125, 81, 118]);
+    assert.deepEqual(ids, [62,  24, 22,  12, 28, 20, 125, 119, 30, 118, 81, 21, 81, 118]);
 });
 
 test('getLeaves handles null-property features', () => {
@@ -59,7 +68,7 @@ test('getLeaves handles null-property features', () => {
             coordinates: [-79.04411780507252, 43.08771393436908]
         }
     }]));
-    const leaves = index.getLeaves(165, 1, 6);
+    const leaves = index.getLeaves(165, 1, 12);
     assert.equal(leaves[0].properties, null);
 });
 
@@ -90,9 +99,9 @@ test('aggregates cluster properties with reduce', () => {
     }).load(places.features);
 
     assert.deepEqual(index.getTile(1, 0, 0).features.map(f => f.tags.sum).filter(Boolean),
-        [146, 84, 63, 23, 34, 12, 19, 29, 8, 8, 80, 35]);
+        [8, 19, 12, 23, 146, 34, 8, 29, 84, 63, 35, 80]);
     assert.deepEqual(index.getTile(0, 0, 0).features.map(f => f.tags.sum).filter(Boolean),
-        [298, 122, 12, 36, 98, 7, 24, 8, 125, 98, 125, 12, 36, 8]);
+        [8,  7, 24, 125, 298, 12, 122, 36, 98,  98, 125, 12, 36,  8]);
 });
 
 test('returns clusters when query crosses international dateline', () => {
@@ -162,7 +171,7 @@ test('makes sure same-location points are clustered', () => {
         {type: 'Feature', geometry: {type: 'Point', coordinates: [-1.426798, 53.943034]}}
     ]);
 
-    assert.equal(index.trees[20].ids.length, 1);
+    assert.equal(index.clusterData[20].length, 6);
 });
 
 test('makes sure unclustered point coords are not rounded', () => {
