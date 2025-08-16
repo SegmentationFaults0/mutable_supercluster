@@ -1,4 +1,4 @@
-# mutable-supercluster 
+# mutable-supercluster [![Tests](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml)
 
 *This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster).*
 
