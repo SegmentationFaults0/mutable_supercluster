@@ -26,7 +26,10 @@ const defaultOptions = {
     reduce: null, // (accumulated, props) => { accumulated.sum += props.sum; }
 
     // properties to use for individual points when running the reducer
-    map: props => props // props => ({sum: props.my_value})
+    map: props => props, // props => ({sum: props.my_value})
+
+    // a function that maps a point to its Id, which should be numerical
+    getId: point => point.geometry.coordinates[0]
 };
 
 const fround = Math.fround || (tmp => ((x) => { tmp[0] = +x; return tmp[0]; }))(new Float32Array(1));
@@ -40,10 +43,12 @@ const OFFSET_PROP = 6;
 export default class Supercluster {
     constructor(options) {
         this.options = Object.assign(Object.create(defaultOptions), options);
+        if (!this.options.getId) throw new Error('The Id access function (options.getId) can not be null');
         this.trees = new Array(this.options.maxZoom + 1);
         this.clusterData = new Array(this.options.maxZoom + 1);
         this.stride = this.options.reduce ? 7 : 6;
         this.clusterProps = [];
+        this.getId = this.options.getId;
     }
 
     load(points) {
@@ -55,6 +60,7 @@ export default class Supercluster {
         if (log) console.time(timerId);
 
         this.points = points;
+        this.points.sort((a, b) => this.getId(a) - this.getId(b));
 
         // generate a cluster object for each point and index input points into a R-tree
         const currentClusterData = [];

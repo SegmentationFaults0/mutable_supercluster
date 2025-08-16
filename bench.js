@@ -27,6 +27,7 @@ const index = new Supercluster({
     maxZoom: 6,
     // map: props => ({sum: props.index}),
     // reduce: (accumulated, props) => { accumulated.sum += props.sum; }
+    getId: point => point.properties.index
 }).load(points);
 
 global.gc();
