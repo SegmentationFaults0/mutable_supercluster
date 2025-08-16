@@ -1,13 +1,11 @@
 {
   "name": "mutable-supercluster",
   "version": "1.0.0",
-  "description": "A geospatial point clustering library forked from the 'supercluster' library and adapted to be mutable.",
+  "description": "A library for fast and mutable geospatial point clustering.",
   "main": "dist/supercluster.js",
   "type": "module",
   "exports": "./index.js",
   "module": "index.js",
-  "jsdelivr": "dist/supercluster.min.js",
-  "unpkg": "dist/supercluster.min.js",
   "sideEffects": false,
   "scripts": {
     "pretest": "eslint index.js bench.js test/test.js demo/index.js demo/worker.js",

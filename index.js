@@ -16,7 +16,7 @@ const defaultOptions = {
     minPoints: 2, // minimum points to form a cluster
     radius: 40,   // cluster radius in pixels
     extent: 512,  // tile extent (radius is calculated relative to it)
-    nodeSize: 9, // size of the R-tree node, affects performance
+    nodeSize: 9, // size of the R-tree nodes, affects performance
     log: false,   // whether to log timing info
 
     // whether to generate numeric ids for input features (in vector tiles)
