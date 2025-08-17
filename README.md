@@ -1,4 +1,5 @@
-# mutable-supercluster [![Tests](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml)
+# mutable-supercluster [![Tests](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml) ![NPM Version](https://img.shields.io/npm/v/mutable-supercluster)
+
 
 *This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster).*
 
@@ -17,14 +18,14 @@ const clusters = index.getClusters([-180, -85, 180, 85], 2);
 
 Supercluster was built to power clustering in [Mapbox GL JS](https://www.mapbox.com/mapbox-gljs). Read about how it works [on the Mapbox blog](https://blog.mapbox.com/clustering-millions-of-points-on-a-map-with-supercluster-272046ec5c97). -->
 
-<!-- ## Install
+## Install
 
 Install using NPM (`npm install mutable-supercluster`), then:
 
 ```js
 // import as a ES module in Node
 import Supercluster from 'mutable-supercluster';
-``` -->
+```
 
 ## Methods
 
@@ -63,10 +64,11 @@ Returns the zoom on which the cluster expands into several children (useful for 
 | minPoints  | 2       | Minimum number of points to form a cluster.                       |
 | radius     | 40      | Cluster radius, in pixels.                                        |
 | extent     | 512     | (Tiles) Tile extent. Radius is calculated relative to this value. |
+| zoomFactor | 2       | The factor with which the detail increases each zoom level.       |
 | nodeSize   | 9       | Size of the R-tree nodes. Affects performance.                    |
 | log        | false   | Whether timing info should be logged.                             |
 | generateId | false   | Whether to generate ids for input features in vector tiles.       |
-| getID      | null    | An function that accesses a unique, numerical id field for each point, can not be null.|
+| getId      | null    | An function that accesses a unique, numerical id field for each point, can not be null.|
 
 ### Property map/reduce options
 
