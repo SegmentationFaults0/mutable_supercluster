@@ -1,13 +1,11 @@
 {
-  "name": "supercluster",
-  "version": "8.0.1",
-  "description": "A very fast geospatial point clustering library.",
-  "main": "dist/supercluster.js",
+  "name": "mutable-supercluster",
+  "version": "1.0.0",
+  "description": "A library for fast and mutable geospatial point clustering.",
+  "main": "dist/mutable-supercluster.js",
   "type": "module",
   "exports": "./index.js",
   "module": "index.js",
-  "jsdelivr": "dist/supercluster.min.js",
-  "unpkg": "dist/supercluster.min.js",
   "sideEffects": false,
   "scripts": {
     "pretest": "eslint index.js bench.js test/test.js demo/index.js demo/worker.js",
@@ -19,22 +17,22 @@
   },
   "files": [
     "index.js",
-    "dist/supercluster.js",
-    "dist/supercluster.min.js"
+    "dist/mutable-supercluster.js",
+    "dist/mutable-supercluster.min.js"
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/mapbox/supercluster.git"
+    "url": "git://github.com/SegmentationFaults0/mutable_supercluster.git"
   },
   "keywords": [
     "clustering",
     "geospatial",
     "markers"
   ],
-  "author": "Vladimir Agafonkin",
+  "author": "Sander Verwimp",
   "license": "ISC",
   "dependencies": {
-    "kdbush": "^4.0.2"
+    "rbush": "^4.0.1"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.2.3",

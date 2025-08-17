@@ -1,6 +1,8 @@
-# supercluster [![Simply Awesome](https://img.shields.io/badge/simply-awesome-brightgreen.svg)](https://github.com/mourner/projects) [![Node](https://github.com/mapbox/supercluster/actions/workflows/node.yml/badge.svg)](https://github.com/mapbox/supercluster/actions/workflows/node.yml)
+# mutable-supercluster [![Tests](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml)
 
-A very fast JavaScript library for geospatial point clustering for browsers and Node.
+*This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster).*
+
+A Node.js library for fast and mutable geospatial point clustering.
 
 ```js
 const index = new Supercluster({radius: 40, maxZoom: 16});
@@ -9,29 +11,20 @@ index.load(points);
 const clusters = index.getClusters([-180, -85, 180, 85], 2);
 ```
 
-Clustering 6 million points in Leaflet:
+<!-- Clustering 6 million points in Leaflet:
 
 ![clustering demo on an interactive Leaflet map](https://cloud.githubusercontent.com/assets/25395/11857351/43407b46-a40c-11e5-8662-e99ab1cd2cb7.gif)
 
-Supercluster was built to power clustering in [Mapbox GL JS](https://www.mapbox.com/mapbox-gljs). Read about how it works [on the Mapbox blog](https://blog.mapbox.com/clustering-millions-of-points-on-a-map-with-supercluster-272046ec5c97).
+Supercluster was built to power clustering in [Mapbox GL JS](https://www.mapbox.com/mapbox-gljs). Read about how it works [on the Mapbox blog](https://blog.mapbox.com/clustering-millions-of-points-on-a-map-with-supercluster-272046ec5c97). -->
 
-## Install
+<!-- ## Install
 
-Install using NPM (`npm install supercluster`) or Yarn (`yarn add supercluster`), then:
+Install using NPM (`npm install mutable-supercluster`), then:
 
 ```js
 // import as a ES module in Node
-import Supercluster from 'supercluster';
-
-// import from a CDN in the browser:
-import Supercluster from 'https://esm.run/supercluster';
-```
-
-Or use it with an ordinary script tag in the browser:
-
-```html
-<script src="https://unpkg.com/supercluster@8.0.0/dist/supercluster.min.js"></script>
-```
+import Supercluster from 'mutable-supercluster';
+``` -->
 
 ## Methods
 
@@ -70,9 +63,10 @@ Returns the zoom on which the cluster expands into several children (useful for 
 | minPoints  | 2       | Minimum number of points to form a cluster.                       |
 | radius     | 40      | Cluster radius, in pixels.                                        |
 | extent     | 512     | (Tiles) Tile extent. Radius is calculated relative to this value. |
-| nodeSize   | 64      | Size of the KD-tree leaf node. Affects performance.               |
+| nodeSize   | 9       | Size of the R-tree nodes. Affects performance.                    |
 | log        | false   | Whether timing info should be logged.                             |
 | generateId | false   | Whether to generate ids for input features in vector tiles.       |
+| getID      | null    | An function that accesses a unique, numerical id field for each point, can not be null.|
 
 ### Property map/reduce options
 
@@ -94,14 +88,6 @@ The `map`/`reduce` options must satisfy these conditions to work correctly:
 
 - `map` must return a new object, not existing `properties` of a point, otherwise it will get overwritten.
 - `reduce` must not mutate the second argument (`props`).
-
-## TypeScript
-
-Install `@types/supercluster` for the TypeScript type definitions:
-
-```
-npm install @types/supercluster --save-dev 
-```
 
 ## Developing Supercluster
 

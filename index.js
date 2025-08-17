@@ -1,5 +1,14 @@
 
-import KDBush from 'kdbush';
+import RBush from 'rbush';
+
+class MyRBush extends RBush {
+    // eslint-disable-next-line class-methods-use-this
+    toBBox([x, y]) { return {minX: x, minY: y, maxX: x, maxY: y}; }
+    // eslint-disable-next-line class-methods-use-this
+    compareMinX(a, b) { return a[0] - b[0]; }
+    // eslint-disable-next-line class-methods-use-this
+    compareMinY(a, b) { return a[1] - b[1]; }
+}
 
 const defaultOptions = {
     minZoom: 0,   // min zoom to generate clusters on
@@ -7,7 +16,7 @@ const defaultOptions = {
     minPoints: 2, // minimum points to form a cluster
     radius: 40,   // cluster radius in pixels
     extent: 512,  // tile extent (radius is calculated relative to it)
-    nodeSize: 64, // size of the KD-tree leaf node, affects performance
+    nodeSize: 9, // size of the R-tree nodes, affects performance
     log: false,   // whether to log timing info
 
     // whether to generate numeric ids for input features (in vector tiles)
@@ -17,7 +26,10 @@ const defaultOptions = {
     reduce: null, // (accumulated, props) => { accumulated.sum += props.sum; }
 
     // properties to use for individual points when running the reducer
-    map: props => props // props => ({sum: props.my_value})
+    map: props => props, // props => ({sum: props.my_value})
+
+    // a function that maps a point to its Id, which should be numerical
+    getId: point => point.geometry.coordinates[0]
 };
 
 const fround = Math.fround || (tmp => ((x) => { tmp[0] = +x; return tmp[0]; }))(new Float32Array(1));
@@ -31,9 +43,12 @@ const OFFSET_PROP = 6;
 export default class Supercluster {
     constructor(options) {
         this.options = Object.assign(Object.create(defaultOptions), options);
+        if (!this.options.getId) throw new Error('The Id access function (options.getId) can not be null');
         this.trees = new Array(this.options.maxZoom + 1);
+        this.clusterData = new Array(this.options.maxZoom + 1);
         this.stride = this.options.reduce ? 7 : 6;
         this.clusterProps = [];
+        this.getId = this.options.getId;
     }
 
     load(points) {
@@ -45,9 +60,11 @@ export default class Supercluster {
         if (log) console.time(timerId);
 
         this.points = points;
+        this.points.sort((a, b) => this.getId(a) - this.getId(b));
 
-        // generate a cluster object for each point and index input points into a KD-tree
-        const data = [];
+        // generate a cluster object for each point and index input points into a R-tree
+        const currentClusterData = [];
+        const currentIndexData = [];
 
         for (let i = 0; i < points.length; i++) {
             const p = points[i];
@@ -57,16 +74,21 @@ export default class Supercluster {
             const x = fround(lngX(lng));
             const y = fround(latY(lat));
             // store internal point/cluster data in flat numeric arrays for performance
-            data.push(
+            currentClusterData.push(
                 x, y, // projected point coordinates
                 Infinity, // the last zoom the point was processed at
                 i, // index of the source feature in the original input array
                 -1, // parent cluster id
                 1 // number of points in a cluster
             );
-            if (this.options.reduce) data.push(0); // noop
+            if (this.options.reduce) currentClusterData.push(0); // noop
+
+            // populate indexData-array because R-Tree needs an array of separate items.
+            // TODO: possible optimization is forking RBush repo and change this to be more like KDBush?
+            currentIndexData.push([x, y, i]);
         }
-        let tree = this.trees[maxZoom + 1] = this._createTree(data);
+        this.trees[maxZoom + 1] = this._createTree(currentIndexData);
+        this.clusterData[maxZoom + 1] = currentClusterData;
 
         if (log) console.timeEnd(timerId);
 
@@ -75,10 +97,11 @@ export default class Supercluster {
         for (let z = maxZoom; z >= minZoom; z--) {
             const now = +Date.now();
 
-            // create a new set of clusters for the zoom and index them with a KD-tree
-            tree = this.trees[z] = this._createTree(this._cluster(tree, z));
+            // create a new set of clusters for the zoom and index them with a R-tree
+            const newIndexData = this._cluster(z);
+            this.trees[z] = this._createTree(newIndexData);
 
-            if (log) console.log('z%d: %d clusters in %dms', z, tree.numItems, +Date.now() - now);
+            if (log) console.log('z%d: %d clusters in %dms', z, newIndexData.length, +Date.now() - now);
         }
 
         if (log) console.timeEnd('total time');
@@ -101,9 +124,9 @@ export default class Supercluster {
             return easternHem.concat(westernHem);
         }
 
-        const tree = this.trees[this._limitZoom(zoom)];
-        const ids = tree.range(lngX(minLng), latY(maxLat), lngX(maxLng), latY(minLat));
-        const data = tree.data;
+        const z = this._limitZoom(zoom);
+        const ids = this._rbushRange(z, lngX(minLng), latY(maxLat), lngX(maxLng), latY(minLat));
+        const data = this.clusterData[z];
         const clusters = [];
         for (const id of ids) {
             const k = this.stride * id;
@@ -117,16 +140,15 @@ export default class Supercluster {
         const originZoom = this._getOriginZoom(clusterId);
         const errorMsg = 'No cluster with the specified id.';
 
-        const tree = this.trees[originZoom];
-        if (!tree) throw new Error(errorMsg);
+        if (!this.trees[originZoom]) throw new Error(errorMsg);
 
-        const data = tree.data;
+        const data = this.clusterData[originZoom];
         if (originId * this.stride >= data.length) throw new Error(errorMsg);
 
         const r = this.options.radius / (this.options.extent * Math.pow(2, originZoom - 1));
         const x = data[originId * this.stride];
         const y = data[originId * this.stride + 1];
-        const ids = tree.within(x, y, r);
+        const ids = this._rbushWithin(x, y, originZoom, r);
         const children = [];
         for (const id of ids) {
             const k = id * this.stride;
@@ -151,7 +173,8 @@ export default class Supercluster {
     }
 
     getTile(z, x, y) {
-        const tree = this.trees[this._limitZoom(z)];
+        const zoom = this._limitZoom(z);
+        const data = this.clusterData[zoom];
         const z2 = Math.pow(2, z);
         const {extent, radius} = this.options;
         const p = radius / extent;
@@ -163,18 +186,17 @@ export default class Supercluster {
         };
 
         this._addTileFeatures(
-            tree.range((x - p) / z2, top, (x + 1 + p) / z2, bottom),
-            tree.data, x, y, z2, tile);
-
+            this._rbushRange(zoom, (x - p) / z2, top, (x + 1 + p) / z2, bottom),
+            data, x, y, z2, tile);
         if (x === 0) {
             this._addTileFeatures(
-                tree.range(1 - p / z2, top, 1, bottom),
-                tree.data, z2, y, z2, tile);
+                this._rbushRange(zoom, 1 - p / z2, top, 1, bottom),
+                data, z2, y, z2, tile);
         }
         if (x === z2 - 1) {
             this._addTileFeatures(
-                tree.range(0, top, p / z2, bottom),
-                tree.data, -1, y, z2, tile);
+                this._rbushRange(zoom, 0, top, p / z2, bottom),
+                data, -1, y, z2, tile);
         }
 
         return tile.features.length ? tile : null;
@@ -220,10 +242,8 @@ export default class Supercluster {
     }
 
     _createTree(data) {
-        const tree = new KDBush(data.length / this.stride | 0, this.options.nodeSize, Float32Array);
-        for (let i = 0; i < data.length; i += this.stride) tree.add(data[i], data[i + 1]);
-        tree.finish();
-        tree.data = data;
+        const tree = new MyRBush(this.options.nodeSize);
+        tree.load(data);
         return tree;
     }
 
@@ -274,11 +294,12 @@ export default class Supercluster {
         return Math.max(this.options.minZoom, Math.min(Math.floor(+z), this.options.maxZoom + 1));
     }
 
-    _cluster(tree, zoom) {
+    _cluster(zoom) {
         const {radius, extent, reduce, minPoints} = this.options;
         const r = radius / (extent * Math.pow(2, zoom));
-        const data = tree.data;
-        const nextData = [];
+        const data = this.clusterData[zoom + 1];
+        const nextClusterData = [];
+        const nextIndexData = [];
         const stride = this.stride;
 
         // loop through each point
@@ -290,7 +311,7 @@ export default class Supercluster {
             // find all nearby points
             const x = data[i];
             const y = data[i + 1];
-            const neighborIds = tree.within(data[i], data[i + 1], r);
+            const neighborIds = this._rbushWithin(data[i], data[i + 1], zoom + 1, r);
 
             const numPointsOrigin = data[i + OFFSET_NUM];
             let numPoints = numPointsOrigin;
@@ -336,24 +357,27 @@ export default class Supercluster {
                 }
 
                 data[i + OFFSET_PARENT] = id;
-                nextData.push(wx / numPoints, wy / numPoints, Infinity, id, -1, numPoints);
-                if (reduce) nextData.push(clusterPropIndex);
+                nextIndexData.push([wx / numPoints, wy / numPoints, nextIndexData.length]);
+                nextClusterData.push(wx / numPoints, wy / numPoints, Infinity, id, -1, numPoints);
+                if (reduce) nextClusterData.push(clusterPropIndex);
 
             } else { // left points as unclustered
-                for (let j = 0; j < stride; j++) nextData.push(data[i + j]);
+                nextIndexData.push([data[i], data[i + 1], nextIndexData.length]);
+                for (let j = 0; j < stride; j++) nextClusterData.push(data[i + j]);
 
                 if (numPoints > 1) {
                     for (const neighborId of neighborIds) {
                         const k = neighborId * stride;
                         if (data[k + OFFSET_ZOOM] <= zoom) continue;
                         data[k + OFFSET_ZOOM] = zoom;
-                        for (let j = 0; j < stride; j++) nextData.push(data[k + j]);
+                        nextIndexData.push([data[k], data[k + 1], nextIndexData.length]);
+                        for (let j = 0; j < stride; j++) nextClusterData.push(data[k + j]);
                     }
                 }
             }
         }
-
-        return nextData;
+        this.clusterData[zoom] = nextClusterData;
+        return nextIndexData;
     }
 
     // get index of the point from which the cluster originated
@@ -374,6 +398,19 @@ export default class Supercluster {
         const original = this.points[data[i + OFFSET_ID]].properties;
         const result = this.options.map(original);
         return clone && result === original ? Object.assign({}, result) : result;
+    }
+
+    _rbushWithin(ax, ay, zoom, radius) {
+        const r2 = radius * radius;
+        const pointsInSquare = this.trees[zoom].search({minX: ax - radius, minY: ay - radius, maxX: ax + radius, maxY: ay + radius});
+        return pointsInSquare.filter(([bx, by]) => sqDist(ax, ay, bx, by) <= r2).map(point => point[2]);
+    }
+
+    _rbushRange(zoom, minX, minY, maxX, maxY) {
+        const result = [];
+        const pointsInBox = this.trees[zoom].search({minX, minY, maxX, maxY});
+        for (const point of pointsInBox) result.push(point[2]);
+        return result;
     }
 }
 
@@ -422,4 +459,10 @@ function xLng(x) {
 function yLat(y) {
     const y2 = (180 - y * 360) * Math.PI / 180;
     return 360 * Math.atan(Math.exp(y2)) / Math.PI - 90;
+}
+
+function sqDist(ax, ay, bx, by) {
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx * dx + dy * dy;
 }

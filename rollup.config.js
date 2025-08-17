@@ -4,7 +4,7 @@ import resolve from "@rollup/plugin-node-resolve";
 const config = (file, plugins) => ({
     input: 'index.js',
     output: {
-        name: 'Supercluster',
+        name: 'mutable-supercluster',
         format: 'umd',
         indent: false,
         file
@@ -13,6 +13,6 @@ const config = (file, plugins) => ({
 });
 
 export default [
-    config('dist/supercluster.js', [resolve()]),
-    config('dist/supercluster.min.js', [resolve(), terser()])
+    config('dist/mutable-supercluster.js', [resolve()]),
+    config('dist/mutable-supercluster.min.js', [resolve(), terser()])
 ];
