@@ -16,6 +16,7 @@ const defaultOptions = {
     minPoints: 2, // minimum points to form a cluster
     radius: 40,   // cluster radius in pixels
     extent: 512,  // tile extent (radius is calculated relative to it)
+    zoomFactor: 2, // the factor with which the detail increases each zoom level
     nodeSize: 9, // size of the R-tree nodes, affects performance
     log: false,   // whether to log timing info
 
@@ -145,7 +146,7 @@ export default class Supercluster {
         const data = this.clusterData[originZoom];
         if (originId * this.stride >= data.length) throw new Error(errorMsg);
 
-        const r = this.options.radius / (this.options.extent * Math.pow(2, originZoom - 1));
+        const r = this.options.radius / (this.options.extent * Math.pow(this.options.zoomFactor, originZoom - 1));
         const x = data[originId * this.stride];
         const y = data[originId * this.stride + 1];
         const ids = this._rbushWithin(x, y, originZoom, r);
@@ -175,8 +176,8 @@ export default class Supercluster {
     getTile(z, x, y) {
         const zoom = this._limitZoom(z);
         const data = this.clusterData[zoom];
-        const z2 = Math.pow(2, z);
-        const {extent, radius} = this.options;
+        const {extent, radius, zoomFactor} = this.options;
+        const z2 = Math.pow(zoomFactor, z);
         const p = radius / extent;
         const top = (y - p) / z2;
         const bottom = (y + 1 + p) / z2;
@@ -295,8 +296,8 @@ export default class Supercluster {
     }
 
     _cluster(zoom) {
-        const {radius, extent, reduce, minPoints} = this.options;
-        const r = radius / (extent * Math.pow(2, zoom));
+        const {radius, extent, reduce, minPoints, zoomFactor} = this.options;
+        const r = radius / (extent * Math.pow(zoomFactor, zoom));
         const data = this.clusterData[zoom + 1];
         const nextClusterData = [];
         const nextIndexData = [];
