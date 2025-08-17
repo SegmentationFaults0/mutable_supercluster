@@ -401,15 +401,9 @@ export default class Supercluster {
     }
 
     _rbushWithin(ax, ay, zoom, radius) {
-        const result = [];
         const r2 = radius * radius;
         const pointsInSquare = this.trees[zoom].search({minX: ax - radius, minY: ay - radius, maxX: ax + radius, maxY: ay + radius});
-        for (const [bx, by, idx] of pointsInSquare) {
-            if (sqDist(ax, ay, bx, by) <= r2) {
-                result.push(idx);
-            }
-        }
-        return result;
+        return pointsInSquare.filter(([bx, by]) => sqDist(ax, ay, bx, by) <= r2).map(point => point[2]);
     }
 
     _rbushRange(zoom, minX, minY, maxX, maxY) {

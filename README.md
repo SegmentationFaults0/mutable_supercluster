@@ -63,9 +63,10 @@ Returns the zoom on which the cluster expands into several children (useful for 
 | minPoints  | 2       | Minimum number of points to form a cluster.                       |
 | radius     | 40      | Cluster radius, in pixels.                                        |
 | extent     | 512     | (Tiles) Tile extent. Radius is calculated relative to this value. |
-| nodeSize   | 9      | Size of the R-tree nodes. Affects performance.               |
+| nodeSize   | 9       | Size of the R-tree nodes. Affects performance.                    |
 | log        | false   | Whether timing info should be logged.                             |
 | generateId | false   | Whether to generate ids for input features in vector tiles.       |
+| getID      | null    | An function that accesses a unique, numerical id field for each point, can not be null.|
 
 ### Property map/reduce options
 
