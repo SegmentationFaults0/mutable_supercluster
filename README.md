@@ -1,4 +1,4 @@
-# mutable-supercluster [![Tests](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/node.yml) ![NPM Version](https://img.shields.io/npm/v/mutable-supercluster)
+# mutable-supercluster [![Test](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/test.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/test.yml) ![NPM Version](https://img.shields.io/npm/v/mutable-supercluster)
 
 
 *This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster).*
