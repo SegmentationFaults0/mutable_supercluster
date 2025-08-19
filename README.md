@@ -55,9 +55,9 @@ and `offset` is the amount of points to skip (for pagination).
 
 Returns the zoom on which the cluster expands into several children (useful for "click to zoom" feature) given the cluster's `cluster_id`.
 
-#### `updatePointProperties(point)`
+#### `updatePointProperties(id, properties)`
 
-Updates the point in the cluster with the same id (according to `getId`) to the provided point. If the given point has no corresponding point in the cluster with the same id or the location of the point (`point.geometry.coordinates`) is not the same, this method will throw an error.
+Updates the point in the cluster with the same `id` (according to `getId`), with the given `properties`. If the given `id` is not present in the cluster, this method will throw an error. The location of the point (`point.geometry.coordinates`) can not be updated through this method.
 
 ## Options
 
