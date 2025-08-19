@@ -214,12 +214,12 @@ export default class Supercluster {
     }
 
     updatePointProperties(point) {
-        const id = this._linearSearchInPoints(point);
-        if (!id) return;
-        const [oldLng, oldLat] = this.points[id].geometry.coordinates;
+        const idx = this._linearSearchInPoints(point);
+        if (!idx) throw new Error('No point with the same id could be found in the current cluster.');
+        const [oldLng, oldLat] = this.points[idx].geometry.coordinates;
         const [newLng, newLat] = point.geometry.coordinates;
         if (oldLng !== newLng || oldLat !== newLat) throw new Error('The location of the updated point should be the same when using updatePointProperties().');
-        this.points[id] = point;
+        this.points[idx] = point;
     }
 
     _appendLeaves(result, clusterId, limit, offset, skipped) {
@@ -424,12 +424,8 @@ export default class Supercluster {
 
     _linearSearchInPoints(point) {
         const pointId = this.getId(point);
-        for (let i = 0; i < this.points.length; i++) {
-            if (this.getId(this.points[i]) === pointId) {
-                return i;
-            }
-        }
-        return null;
+        const index = this.points.findIndex(p => this.getId(p) === pointId);
+        return index !== -1 ? index : null;
     }
 }
 

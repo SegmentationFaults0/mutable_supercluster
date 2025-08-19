@@ -57,7 +57,7 @@ Returns the zoom on which the cluster expands into several children (useful for 
 
 #### `updatePointProperties(point)`
 
-Updates the point in the cluster with the same id (according to `getId`) to the provided point. The location of the point (`point.geometry.coordinates`) should not be different, otherwise this method will throw an error.
+Updates the point in the cluster with the same id (according to `getId`) to the provided point. If the given point has no corresponding point in the cluster with the same id or the location of the point (`point.geometry.coordinates`) is not the same, this method will throw an error.
 
 ## Options
 
