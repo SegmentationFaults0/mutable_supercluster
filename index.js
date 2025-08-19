@@ -1,5 +1,6 @@
 
 import RBush from 'rbush';
+import {merge as lodashMerge} from 'lodash-es';
 
 class MyRBush extends RBush {
     // eslint-disable-next-line class-methods-use-this
@@ -60,14 +61,14 @@ export default class Supercluster {
         const timerId = `prepare ${  points.length  } points`;
         if (log) console.time(timerId);
 
-        this.points = points;
+        this.points = structuredClone(points);
 
         // generate a cluster object for each point and index input points into a R-tree
         const currentClusterData = [];
         const currentIndexData = [];
 
-        for (let i = 0; i < points.length; i++) {
-            const p = points[i];
+        for (let i = 0; i < this.points.length; i++) {
+            const p = this.points[i];
             if (!p.geometry) continue;
 
             const [lng, lat] = p.geometry.coordinates;
@@ -213,13 +214,13 @@ export default class Supercluster {
         return expansionZoom;
     }
 
-    updatePointProperties(point) {
-        const idx = this._linearSearchInPoints(point);
-        if (!idx) throw new Error('No point with the same id could be found in the current cluster.');
-        const [oldLng, oldLat] = this.points[idx].geometry.coordinates;
-        const [newLng, newLat] = point.geometry.coordinates;
-        if (oldLng !== newLng || oldLat !== newLat) throw new Error('The location of the updated point should be the same when using updatePointProperties().');
-        this.points[idx] = point;
+    updatePointProperties(id, properties) {
+        const idx = this._linearSearchInPoints(id);
+        if (!idx) throw new Error('No point with the given id could be found.');
+
+        const clonedProperties = structuredClone(properties);
+        delete clonedProperties.geometry?.coordinates;
+        lodashMerge(this.points[idx], clonedProperties);
     }
 
     _appendLeaves(result, clusterId, limit, offset, skipped) {
@@ -422,9 +423,8 @@ export default class Supercluster {
         return result;
     }
 
-    _linearSearchInPoints(point) {
-        const pointId = this.getId(point);
-        const index = this.points.findIndex(p => this.getId(p) === pointId);
+    _linearSearchInPoints(id) {
+        const index = this.points.findIndex(p => this.getId(p) === id);
         return index !== -1 ? index : null;
     }
 }
