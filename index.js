@@ -1,6 +1,6 @@
 
 import RBush from 'rbush';
-import _ from 'lodash';
+import {merge as lodashMerge} from 'lodash-es';
 
 class MyRBush extends RBush {
     // eslint-disable-next-line class-methods-use-this
@@ -220,7 +220,7 @@ export default class Supercluster {
 
         const clonedProperties = structuredClone(properties);
         delete clonedProperties.geometry?.coordinates;
-        this.points[idx] = _.merge(this.points[idx], clonedProperties);
+        lodashMerge(this.points[idx], clonedProperties);
     }
 
     _appendLeaves(result, clusterId, limit, offset, skipped) {
