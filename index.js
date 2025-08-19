@@ -29,8 +29,8 @@ const defaultOptions = {
     // properties to use for individual points when running the reducer
     map: props => props, // props => ({sum: props.my_value})
 
-    // a function that maps a point to its Id, which should be numerical
-    getId: point => point.geometry.coordinates[0]
+    // a function that maps a point to its (externally provided) Id
+    getId: null
 };
 
 const fround = Math.fround || (tmp => ((x) => { tmp[0] = +x; return tmp[0]; }))(new Float32Array(1));
@@ -61,7 +61,6 @@ export default class Supercluster {
         if (log) console.time(timerId);
 
         this.points = points;
-        this.points.sort((a, b) => this.getId(a) - this.getId(b));
 
         // generate a cluster object for each point and index input points into a R-tree
         const currentClusterData = [];
@@ -212,6 +211,15 @@ export default class Supercluster {
             clusterId = children[0].properties.cluster_id;
         }
         return expansionZoom;
+    }
+
+    updatePointProperties(point) {
+        const idx = this._linearSearchInPoints(point);
+        if (!idx) throw new Error('No point with the same id could be found in the current cluster.');
+        const [oldLng, oldLat] = this.points[idx].geometry.coordinates;
+        const [newLng, newLat] = point.geometry.coordinates;
+        if (oldLng !== newLng || oldLat !== newLat) throw new Error('The location of the updated point should be the same when using updatePointProperties().');
+        this.points[idx] = point;
     }
 
     _appendLeaves(result, clusterId, limit, offset, skipped) {
@@ -412,6 +420,12 @@ export default class Supercluster {
         const pointsInBox = this.trees[zoom].search({minX, minY, maxX, maxY});
         for (const point of pointsInBox) result.push(point[2]);
         return result;
+    }
+
+    _linearSearchInPoints(point) {
+        const pointId = this.getId(point);
+        const index = this.points.findIndex(p => this.getId(p) === pointId);
+        return index !== -1 ? index : null;
     }
 }
 

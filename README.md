@@ -55,6 +55,10 @@ and `offset` is the amount of points to skip (for pagination).
 
 Returns the zoom on which the cluster expands into several children (useful for "click to zoom" feature) given the cluster's `cluster_id`.
 
+#### `updatePointProperties(point)`
+
+Updates the point in the cluster with the same id (according to `getId`) to the provided point. If the given point has no corresponding point in the cluster with the same id or the location of the point (`point.geometry.coordinates`) is not the same, this method will throw an error.
+
 ## Options
 
 | Option     | Default | Description                                                       |
@@ -68,7 +72,7 @@ Returns the zoom on which the cluster expands into several children (useful for 
 | nodeSize   | 9       | Size of the R-tree nodes. Affects performance.                    |
 | log        | false   | Whether timing info should be logged.                             |
 | generateId | false   | Whether to generate ids for input features in vector tiles.       |
-| getId      | null    | An function that accesses a unique, numerical id field for each point, can not be null.|
+| getId      | null    | An function that accesses a unique id field in a point. Can not be null.|
 
 ### Property map/reduce options
 
