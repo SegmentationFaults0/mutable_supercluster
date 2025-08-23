@@ -42,6 +42,17 @@ const OFFSET_PARENT = 4;
 const OFFSET_NUM = 5;
 const OFFSET_PROP = 6;
 
+function pushClusterData(clusterData, reduce, x, y, zoom, id, parent, numPoints, properties) {
+    clusterData.push(
+        x, y, // projected point coordinates
+        zoom, // the last zoom the point was processed at
+        id, // index of the source feature in the original input array
+        parent, // parent cluster id
+        numPoints // number of points in a cluster
+    );
+    if (reduce) clusterData.push(properties); // noop
+}
+
 export default class Supercluster {
     constructor(options) {
         this.options = Object.assign(Object.create(defaultOptions), options);
@@ -75,14 +86,8 @@ export default class Supercluster {
             const x = fround(lngX(lng));
             const y = fround(latY(lat));
             // store internal point/cluster data in flat numeric arrays for performance
-            currentClusterData.push(
-                x, y, // projected point coordinates
-                Infinity, // the last zoom the point was processed at
-                i, // index of the source feature in the original input array
-                -1, // parent cluster id
-                1 // number of points in a cluster
-            );
-            if (this.options.reduce) currentClusterData.push(0); // noop
+            pushClusterData(currentClusterData, this.options.reduce, x, y, Infinity, i, -1, 1, 0);
+
 
             // populate indexData-array because R-Tree needs an array of separate items.
             // TODO: possible optimization is forking RBush repo and change this to be more like KDBush?
@@ -137,8 +142,8 @@ export default class Supercluster {
     }
 
     getChildren(clusterId) {
-        const originId = this._getOriginId(clusterId);
-        const originZoom = this._getOriginZoom(clusterId);
+        const originId = getOriginIdx(clusterId);
+        const originZoom = getOriginZoom(clusterId);
         const errorMsg = 'No cluster with the specified id.';
 
         if (!this.trees[originZoom]) throw new Error(errorMsg);
@@ -204,7 +209,7 @@ export default class Supercluster {
     }
 
     getClusterExpansionZoom(clusterId) {
-        let expansionZoom = this._getOriginZoom(clusterId) - 1;
+        let expansionZoom = getOriginZoom(clusterId) - 1;
         while (expansionZoom <= this.options.maxZoom) {
             const children = this.getChildren(clusterId);
             expansionZoom++;
@@ -221,6 +226,27 @@ export default class Supercluster {
         const clonedProperties = structuredClone(properties);
         delete clonedProperties.geometry?.coordinates;
         lodashMerge(this.points[idx], clonedProperties);
+    }
+
+    addPoint(point) {
+        const {maxZoom, reduce} = this.options;
+        const p = structuredClone(point);
+        this.points.push(p);
+        if (!p.geometry) return;
+        const [lng, lat] = p.geometry.coordinates;
+        const x = fround(lngX(lng));
+        const y = fround(latY(lat));
+        this.clusterData[maxZoom + 1].push(
+            x, y, // projected point coordinates
+            Infinity, // the last zoom the point was processed at
+            this.points.length - 1, // index of the source feature in the original input array
+            -1, // parent cluster id
+            1 // number of points in a cluster
+        );
+        if (reduce) this.clusterData[maxZoom + 1].push(0);
+        this.trees[maxZoom + 1].insert([x, y, this.points.length - 1]);
+
+        // for (let z = maxZoom; z >= minZoom; z--) {}
     }
 
     _appendLeaves(result, clusterId, limit, offset, skipped) {
@@ -341,8 +367,8 @@ export default class Supercluster {
                 let clusterProperties;
                 let clusterPropIndex = -1;
 
-                // encode both zoom and point index on which the cluster originated -- offset by total length of features
-                const id = ((i / stride | 0) << 5) + (zoom + 1) + this.points.length;
+                // encode both zoom and point index on which the cluster originated
+                const id = -(((i / stride | 0) << 5) + (zoom + 1));
 
                 for (const neighborId of neighborIds) {
                     const k = neighborId * stride;
@@ -390,16 +416,6 @@ export default class Supercluster {
         return nextIndexData;
     }
 
-    // get index of the point from which the cluster originated
-    _getOriginId(clusterId) {
-        return (clusterId - this.points.length) >> 5;
-    }
-
-    // get zoom of the point from which the cluster originated
-    _getOriginZoom(clusterId) {
-        return (clusterId - this.points.length) % 32;
-    }
-
     _map(data, i, clone) {
         if (data[i + OFFSET_NUM] > 1) {
             const props = this.clusterProps[data[i + OFFSET_PROP]];
@@ -427,6 +443,18 @@ export default class Supercluster {
         const index = this.points.findIndex(p => this.getId(p) === id);
         return index !== -1 ? index : null;
     }
+}
+
+// get index of the point from which the cluster originated
+function getOriginIdx(clusterId) {
+    if (clusterId >= 0) throw new Error('A cluster id should be negative');
+    return (-clusterId) >> 5;
+}
+
+// get zoom of the point from which the cluster originated
+function getOriginZoom(clusterId) {
+    if (clusterId >= 0) throw new Error('A cluster id should be negative');
+    return (-clusterId) % 32;
 }
 
 function getClusterJSON(data, i, clusterProps) {
