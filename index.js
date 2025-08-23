@@ -73,6 +73,7 @@ export default class Supercluster {
         if (log) console.time(timerId);
 
         this.points = structuredClone(points);
+        points.length = 0;
 
         // generate a cluster object for each point and index input points into a R-tree
         const currentClusterData = [];
