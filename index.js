@@ -42,17 +42,6 @@ const OFFSET_PARENT = 4;
 const OFFSET_NUM = 5;
 const OFFSET_PROP = 6;
 
-function pushClusterData(clusterData, reduce, x, y, zoom, id, parent, numPoints, properties) {
-    clusterData.push(
-        x, y, // projected point coordinates
-        zoom, // the last zoom the point was processed at
-        id, // index of the source feature in the original input array
-        parent, // parent cluster id
-        numPoints // number of points in a cluster
-    );
-    if (reduce) clusterData.push(properties); // noop
-}
-
 export default class Supercluster {
     constructor(options) {
         this.options = Object.assign(Object.create(defaultOptions), options);
@@ -87,8 +76,14 @@ export default class Supercluster {
             const x = fround(lngX(lng));
             const y = fround(latY(lat));
             // store internal point/cluster data in flat numeric arrays for performance
-            pushClusterData(currentClusterData, this.options.reduce, x, y, Infinity, i, -1, 1, 0);
-
+            currentClusterData.push(
+                x, y, // projected point coordinates
+                Infinity, // the last zoom the point was processed at
+                i, // index of the source feature in the original input array
+                -1, // parent cluster id
+                1 // number of points in a cluster
+            );
+            if (this.options.reduce) currentClusterData.push(0); // noop
 
             // populate indexData-array because R-Tree needs an array of separate items.
             // TODO: possible optimization is forking RBush repo and change this to be more like KDBush?
