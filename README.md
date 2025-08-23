@@ -31,7 +31,7 @@ import Supercluster from 'mutable-supercluster';
 
 #### `load(points)`
 
-Loads an array of [GeoJSON Feature](https://tools.ietf.org/html/rfc7946#section-3.2) objects. Each feature's `geometry` must be a [GeoJSON Point](https://tools.ietf.org/html/rfc7946#section-3.1.2). Once loaded, index is immutable.
+Loads an array of [GeoJSON Feature](https://tools.ietf.org/html/rfc7946#section-3.2) objects. Each feature's `geometry` must be a [GeoJSON Point](https://tools.ietf.org/html/rfc7946#section-3.1.2). Loading the points is destructive, so the provided list will be cleared.
 
 #### `getClusters(bbox, zoom)`
 
