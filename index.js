@@ -163,10 +163,10 @@ export default class Supercluster {
     return clusters;
   }
 
-    getChildren(clusterId) {
-        const originId = getOriginIdx(clusterId);
-        const originZoom = getOriginZoom(clusterId);
-        const errorMsg = 'No cluster with the specified id.';
+  getChildren(clusterId) {
+    const originId = getOriginIdx(clusterId);
+    const originZoom = getOriginZoom(clusterId);
+    const errorMsg = "No cluster with the specified id.";
 
     if (!this.trees[originZoom]) throw new Error(errorMsg);
 
@@ -251,46 +251,47 @@ export default class Supercluster {
     return tile.features.length ? tile : null;
   }
 
-    getClusterExpansionZoom(clusterId) {
-        let expansionZoom = getOriginZoom(clusterId) - 1;
-        while (expansionZoom <= this.options.maxZoom) {
-            const children = this.getChildren(clusterId);
-            expansionZoom++;
-            if (children.length !== 1) break;
-            clusterId = children[0].properties.cluster_id;
-        }
-        return expansionZoom;
+  getClusterExpansionZoom(clusterId) {
+    let expansionZoom = getOriginZoom(clusterId) - 1;
+    while (expansionZoom <= this.options.maxZoom) {
+      const children = this.getChildren(clusterId);
+      expansionZoom++;
+      if (children.length !== 1) break;
+      clusterId = children[0].properties.cluster_id;
     }
+    return expansionZoom;
+  }
 
-    updatePointProperties(id, properties) {
-        const idx = this._linearSearchInPoints(id);
-        if (!idx) throw new Error('No point with the given id could be found.');
+  updatePointProperties(id, properties) {
+    const idx = this._linearSearchInPoints(id);
+    if (!idx) throw new Error("No point with the given id could be found.");
 
-        const clonedProperties = structuredClone(properties);
-        delete clonedProperties.geometry?.coordinates;
-        lodashMerge(this.points[idx], clonedProperties);
-    }
+    const clonedProperties = structuredClone(properties);
+    delete clonedProperties.geometry?.coordinates;
+    lodashMerge(this.points[idx], clonedProperties);
+  }
 
-    addPoint(point) {
-        const {maxZoom, reduce} = this.options;
-        const p = structuredClone(point);
-        this.points.push(p);
-        if (!p.geometry) return;
-        const [lng, lat] = p.geometry.coordinates;
-        const x = fround(lngX(lng));
-        const y = fround(latY(lat));
-        this.clusterData[maxZoom + 1].push(
-            x, y, // projected point coordinates
-            Infinity, // the last zoom the point was processed at
-            this.points.length - 1, // index of the source feature in the original input array
-            -1, // parent cluster id
-            1 // number of points in a cluster
-        );
-        if (reduce) this.clusterData[maxZoom + 1].push(0);
-        this.trees[maxZoom + 1].insert([x, y, this.points.length - 1]);
+  addPoint(point) {
+    const { maxZoom, reduce } = this.options;
+    const p = structuredClone(point);
+    this.points.push(p);
+    if (!p.geometry) return;
+    const [lng, lat] = p.geometry.coordinates;
+    const x = fround(lngX(lng));
+    const y = fround(latY(lat));
+    this.clusterData[maxZoom + 1].push(
+      x,
+      y, // projected point coordinates
+      Infinity, // the last zoom the point was processed at
+      this.points.length - 1, // index of the source feature in the original input array
+      -1, // parent cluster id
+      1, // number of points in a cluster
+    );
+    if (reduce) this.clusterData[maxZoom + 1].push(0);
+    this.trees[maxZoom + 1].insert([x, y, this.points.length - 1]);
 
-        // for (let z = maxZoom; z >= minZoom; z--) {}
-    }
+    // for (let z = maxZoom; z >= minZoom; z--) {}
+  }
 
   _appendLeaves(result, clusterId, limit, offset, skipped) {
     const children = this.getChildren(clusterId);
@@ -421,8 +422,8 @@ export default class Supercluster {
         let clusterProperties;
         let clusterPropIndex = -1;
 
-                // encode both zoom and point index on which the cluster originated
-                const id = -(((i / stride | 0) << 5) + (zoom + 1));
+        // encode both zoom and point index on which the cluster originated
+        const id = -((((i / stride) | 0) << 5) + (zoom + 1));
 
         for (const neighborId of neighborIds) {
           const k = neighborId * stride;
@@ -466,20 +467,20 @@ export default class Supercluster {
         nextIndexData.push([data[i], data[i + 1], nextIndexData.length]);
         for (let j = 0; j < stride; j++) nextClusterData.push(data[i + j]);
 
-                if (numPoints > 1) {
-                    for (const neighborId of neighborIds) {
-                        const k = neighborId * stride;
-                        if (data[k + OFFSET_ZOOM] <= zoom) continue;
-                        data[k + OFFSET_ZOOM] = zoom;
-                        nextIndexData.push([data[k], data[k + 1], nextIndexData.length]);
-                        for (let j = 0; j < stride; j++) nextClusterData.push(data[k + j]);
-                    }
-                }
-            }
+        if (numPoints > 1) {
+          for (const neighborId of neighborIds) {
+            const k = neighborId * stride;
+            if (data[k + OFFSET_ZOOM] <= zoom) continue;
+            data[k + OFFSET_ZOOM] = zoom;
+            nextIndexData.push([data[k], data[k + 1], nextIndexData.length]);
+            for (let j = 0; j < stride; j++) nextClusterData.push(data[k + j]);
+          }
         }
-        this.clusterData[zoom] = nextClusterData;
-        return nextIndexData;
+      }
     }
+    this.clusterData[zoom] = nextClusterData;
+    return nextIndexData;
+  }
 
   _map(data, i, clone) {
     if (data[i + OFFSET_NUM] > 1) {
@@ -519,14 +520,14 @@ export default class Supercluster {
 
 // get index of the point from which the cluster originated
 function getOriginIdx(clusterId) {
-    if (clusterId >= 0) throw new Error('A cluster id should be negative');
-    return (-clusterId) >> 5;
+  if (clusterId >= 0) throw new Error("A cluster id should be negative");
+  return -clusterId >> 5;
 }
 
 // get zoom of the point from which the cluster originated
 function getOriginZoom(clusterId) {
-    if (clusterId >= 0) throw new Error('A cluster id should be negative');
-    return (-clusterId) % 32;
+  if (clusterId >= 0) throw new Error("A cluster id should be negative");
+  return -clusterId % 32;
 }
 
 function getClusterJSON(data, i, clusterProps) {
