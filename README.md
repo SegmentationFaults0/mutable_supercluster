@@ -1,12 +1,11 @@
 # mutable-supercluster [![Test](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/test.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/test.yml) ![NPM Version](https://img.shields.io/npm/v/mutable-supercluster)
 
-
-*This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster).*
+_This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster)._
 
 A Node.js library for fast and mutable geospatial point clustering.
 
 ```js
-const index = new Supercluster({radius: 40, maxZoom: 16});
+const index = new Supercluster({ radius: 40, maxZoom: 16 });
 index.load(points);
 
 const clusters = index.getClusters([-180, -85, 180, 85], 2);
@@ -24,7 +23,7 @@ Install using NPM (`npm install mutable-supercluster`), then:
 
 ```js
 // import as a ES module in Node
-import Supercluster from 'mutable-supercluster';
+import Supercluster from "mutable-supercluster";
 ```
 
 ## Methods
@@ -61,18 +60,18 @@ Updates the point in the cluster with the same `id` (according to `getId`), with
 
 ## Options
 
-| Option     | Default | Description                                                       |
-|------------|---------|-------------------------------------------------------------------|
-| minZoom    | 0       | Minimum zoom level at which clusters are generated.               |
-| maxZoom    | 16      | Maximum zoom level at which clusters are generated.               |
-| minPoints  | 2       | Minimum number of points to form a cluster.                       |
-| radius     | 40      | Cluster radius, in pixels.                                        |
-| extent     | 512     | (Tiles) Tile extent. Radius is calculated relative to this value. |
-| zoomFactor | 2       | The factor with which the detail increases each zoom level.       |
-| nodeSize   | 9       | Size of the R-tree nodes. Affects performance.                    |
-| log        | false   | Whether timing info should be logged.                             |
-| generateId | false   | Whether to generate ids for input features in vector tiles.       |
-| getId      | null    | An function that accesses a unique id field in a point. Can not be null.|
+| Option     | Default | Description                                                              |
+| ---------- | ------- | ------------------------------------------------------------------------ |
+| minZoom    | 0       | Minimum zoom level at which clusters are generated.                      |
+| maxZoom    | 16      | Maximum zoom level at which clusters are generated.                      |
+| minPoints  | 2       | Minimum number of points to form a cluster.                              |
+| radius     | 40      | Cluster radius, in pixels.                                               |
+| extent     | 512     | (Tiles) Tile extent. Radius is calculated relative to this value.        |
+| zoomFactor | 2       | The factor with which the detail increases each zoom level.              |
+| nodeSize   | 9       | Size of the R-tree nodes. Affects performance.                           |
+| log        | false   | Whether timing info should be logged.                                    |
+| generateId | false   | Whether to generate ids for input features in vector tiles.              |
+| getId      | null    | An function that accesses a unique id field in a point. Can not be null. |
 
 ### Property map/reduce options
 
@@ -85,8 +84,10 @@ Example of setting up a `sum` cluster property that accumulates the sum of `myVa
 
 ```js
 const index = new Supercluster({
-    map: (props) => ({sum: props.myValue}),
-    reduce: (accumulated, props) => { accumulated.sum += props.sum; }
+  map: (props) => ({ sum: props.myValue }),
+  reduce: (accumulated, props) => {
+    accumulated.sum += props.sum;
+  },
 });
 ```
 

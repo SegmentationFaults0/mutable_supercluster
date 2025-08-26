@@ -8,7 +8,7 @@
   "module": "index.js",
   "sideEffects": false,
   "scripts": {
-    "pretest": "eslint index.js bench.js test/test.js demo/index.js demo/worker.js",
+    "pretest": "npx prettier --check .",
     "test": "node --test",
     "cov": "node --test --experimental-test-coverage",
     "bench": "node --expose-gc bench.js",
@@ -38,9 +38,8 @@
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
-    "eslint": "^9.5.0",
-    "eslint-config-mourner": "^4.0.0",
     "mkdirp": "^3.0.1",
+    "prettier": "3.6.2",
     "rollup": "^4.18.0"
   }
 }
