@@ -1,5 +1,5 @@
 import RBush from "rbush";
-import { merge as lodashMerge } from "lodash-es";
+import { merge as lodashMerge, min } from "lodash-es";
 
 class MyRBush extends RBush {
   toBBox([x, y]) {
@@ -54,8 +54,6 @@ export default class Supercluster {
     this.options = Object.assign(Object.create(defaultOptions), options);
     if (!this.options.getId)
       throw new Error("The Id access function (options.getId) can not be null");
-    this.trees = new Array(this.options.maxZoom + 1);
-    this.clusterData = new Array(this.options.maxZoom + 1);
     this.stride = this.options.reduce ? 7 : 6;
     this.clusterProps = [];
     this.getId = this.options.getId;
@@ -69,11 +67,14 @@ export default class Supercluster {
     const timerId = `prepare ${points.length} points`;
     if (log) console.time(timerId);
 
+    this.trees = new Array(maxZoom + 2);
+    this.clusterData = Array.from({ length: maxZoom + 2 }, () => new Array());
+    this.emptyIndices = Array.from({ length: maxZoom + 2 }, () => new Array());
     this.points = structuredClone(points);
+    this.emptyPointIndices = new Array();
     points.length = 0;
 
     // generate a cluster object for each point and index input points into a R-tree
-    const currentClusterData = [];
     const currentIndexData = [];
 
     for (let i = 0; i < this.points.length; i++) {
@@ -84,22 +85,22 @@ export default class Supercluster {
       const x = fround(lngX(lng));
       const y = fround(latY(lat));
       // store internal point/cluster data in flat numeric arrays for performance
-      currentClusterData.push(
+      const currentNodeData = [
         x,
         y, // projected point coordinates
         Infinity, // the last zoom the point was processed at
         i, // index of the source feature in the original input array
         -1, // parent cluster id
         1, // number of points in a cluster
-      );
-      if (this.options.reduce) currentClusterData.push(0); // noop
+      ];
+      if (this.options.reduce) currentNodeData.push(0); // noop
+      const idx = this._addNodeToTree(maxZoom + 1, currentNodeData);
 
       // populate indexData-array because R-Tree needs an array of separate items.
       // TODO: possible optimization is forking RBush repo and change this to be more like KDBush?
-      currentIndexData.push([x, y, i]);
+      currentIndexData.push([x, y, idx]);
     }
     this.trees[maxZoom + 1] = this._createTree(currentIndexData);
-    this.clusterData[maxZoom + 1] = currentClusterData;
 
     if (log) console.timeEnd(timerId);
 
@@ -173,9 +174,7 @@ export default class Supercluster {
     const data = this.clusterData[originZoom];
     if (originId * this.stride >= data.length) throw new Error(errorMsg);
 
-    const r =
-      this.options.radius /
-      (this.options.extent * Math.pow(this.options.zoomFactor, originZoom - 1));
+    const r = this._calculateRadius(originZoom - 1);
     const x = data[originId * this.stride];
     const y = data[originId * this.stride + 1];
     const ids = this._rbushWithin(x, y, originZoom, r);
@@ -271,27 +270,29 @@ export default class Supercluster {
     lodashMerge(this.points[idx], clonedProperties);
   }
 
-  addPoint(point) {
-    const { maxZoom, reduce } = this.options;
-    const p = structuredClone(point);
-    this.points.push(p);
-    if (!p.geometry) return;
-    const [lng, lat] = p.geometry.coordinates;
-    const x = fround(lngX(lng));
-    const y = fround(latY(lat));
-    this.clusterData[maxZoom + 1].push(
-      x,
-      y, // projected point coordinates
-      Infinity, // the last zoom the point was processed at
-      this.points.length - 1, // index of the source feature in the original input array
-      -1, // parent cluster id
-      1, // number of points in a cluster
-    );
-    if (reduce) this.clusterData[maxZoom + 1].push(0);
-    this.trees[maxZoom + 1].insert([x, y, this.points.length - 1]);
+  // addPoint(point) {
+  //   const { minZoom, maxZoom, reduce } = this.options;
+  //   const p = structuredClone(point);
+  //   this.points.push(p);
+  //   if (!p.geometry) return;
+  //   const [lng, lat] = p.geometry.coordinates;
+  //   const x = fround(lngX(lng));
+  //   const y = fround(latY(lat));
+  //   this.clusterData[maxZoom + 1].push(
+  //     x,
+  //     y, // projected point coordinates
+  //     Infinity, // the last zoom the point was processed at
+  //     this.points.length - 1, // index of the source feature in the original input array
+  //     -1, // parent cluster id
+  //     1, // number of points in a cluster
+  //   );
+  //   if (reduce) this.clusterData[maxZoom + 1].push(0);
+  //   this.trees[maxZoom + 1].insert([x, y, this.points.length - 1]);
 
-    // for (let z = maxZoom; z >= minZoom; z--) {}
-  }
+  //   for (let z = maxZoom; z >= minZoom; z--) {
+
+  //   }
+  // }
 
   _appendLeaves(result, clusterId, limit, offset, skipped) {
     const children = this.getChildren(clusterId);
@@ -385,16 +386,18 @@ export default class Supercluster {
     );
   }
 
-  _cluster(zoom) {
-    const { radius, extent, reduce, minPoints, zoomFactor } = this.options;
-    const r = radius / (extent * Math.pow(zoomFactor, zoom));
+  _cluster(zoom, childIdxs) {
+    const { reduce, minPoints } = this.options;
+    const r = this._calculateRadius(zoom);
     const data = this.clusterData[zoom + 1];
-    const nextClusterData = [];
     const nextIndexData = [];
     const stride = this.stride;
 
+    childIdxs ??= [...Array(data.length / stride).keys()];
+
     // loop through each point
-    for (let i = 0; i < data.length; i += stride) {
+    for (const childIdx of childIdxs) {
+      const i = childIdx * stride;
       // if we've already visited the point at this zoom level, skip it
       if (data[i + OFFSET_ZOOM] <= zoom) continue;
       data[i + OFFSET_ZOOM] = zoom;
@@ -448,38 +451,75 @@ export default class Supercluster {
         }
 
         data[i + OFFSET_PARENT] = id;
-        nextIndexData.push([
-          wx / numPoints,
-          wy / numPoints,
-          nextIndexData.length,
-        ]);
-        nextClusterData.push(
+        const currentNodeData = [
           wx / numPoints,
           wy / numPoints,
           Infinity,
           id,
           -1,
           numPoints,
-        );
-        if (reduce) nextClusterData.push(clusterPropIndex);
+        ];
+        if (reduce) currentNodeData.push(clusterPropIndex);
+        const idx = this._addNodeToTree(zoom, currentNodeData);
+        nextIndexData.push([wx / numPoints, wy / numPoints, idx]);
       } else {
         // left points as unclustered
-        nextIndexData.push([data[i], data[i + 1], nextIndexData.length]);
-        for (let j = 0; j < stride; j++) nextClusterData.push(data[i + j]);
+
+        nextIndexData.push([
+          data[i],
+          data[i + 1],
+          this._addNodeToTree(zoom, data.slice(i, i + stride)),
+        ]);
 
         if (numPoints > 1) {
           for (const neighborId of neighborIds) {
             const k = neighborId * stride;
             if (data[k + OFFSET_ZOOM] <= zoom) continue;
             data[k + OFFSET_ZOOM] = zoom;
-            nextIndexData.push([data[k], data[k + 1], nextIndexData.length]);
-            for (let j = 0; j < stride; j++) nextClusterData.push(data[k + j]);
+            nextIndexData.push([
+              data[k],
+              data[k + 1],
+              this._addNodeToTree(zoom, data.slice(k, k + stride)),
+            ]);
           }
         }
       }
     }
-    this.clusterData[zoom] = nextClusterData;
     return nextIndexData;
+  }
+
+  _recluster(firstClusteringZoom, childLayerElements, ancestorRemovals) {
+    const { minZoom, maxZoom } = this.options;
+    ancestorRemovals ??= Array.from({ length: maxZoom + 1 }, () => new Array());
+
+    let contiguousChildIdxs = this._visitContiguous(
+      firstClusteringZoom + 1,
+      this._calculateRadius(firstClusteringZoom),
+      childLayerElements,
+    );
+
+    for (let zoom = firstClusteringZoom; zoom >= minZoom; zoom--) {
+      const removed = this._removeParentsOfChildren(
+        zoom,
+        contiguousChildIdxs.map((idx) =>
+          this.clusterData[zoom + 1].slice(idx * stride, (idx + 1) * stride),
+        ),
+      );
+
+      this._removeAncestors(zoom - 1, removed);
+
+      const newIndexData = this._cluster(zoom, contiguousChildIdxs);
+      this.trees[zoom].load(newIndexData);
+
+      if (zoom > minZoom) {
+        contiguousChildIdxs = this._visitContiguous(
+          zoom,
+          this._calculateRadius(zoom - 1),
+          newIndexData.map((idxData) => idxData[2]),
+          [...ancestorRemovals[z], ...removed],
+        );
+      }
+    }
   }
 
   _map(data, i, clone) {
@@ -490,6 +530,112 @@ export default class Supercluster {
     const original = this.points[data[i + OFFSET_ID]].properties;
     const result = this.options.map(original);
     return clone && result === original ? Object.assign({}, result) : result;
+  }
+
+  _addNodeToTree(zoom, nodeData) {
+    let idx = -1;
+    if (this.emptyIndices[zoom].length > 0) {
+      idx = this.emptyIndices[zoom].pop();
+      for (let i = 0; i < this.stride; i++) {
+        this.clusterData[zoom][idx * this.stride + i] = nodeData[i];
+      }
+      return idx;
+    }
+    idx = this.clusterData[zoom].length / this.stride;
+    this.clusterData[zoom].push(...nodeData.slice(0, this.stride));
+    return idx;
+  }
+
+  _removeNodeFromTree(zoom, idx) {
+    this.trees[zoom].remove([null, null, idx], (a, b) => a[2] === b[2]);
+    for (let i = idx * this.stride; i < (idx + 1) * this.stride; i++) {
+      this.clusterData[zoom][i] = null;
+    }
+    this.emptyIndices[zoom].push(idx);
+  }
+
+  _visitContiguous(zoom, searchRadius, elementIdxs, nonIndexedNodes) {
+    const { stride } = this.options;
+    const result = new Set();
+    const notVisited = [...elementIdxs];
+
+    if (nonIndexedNodes) {
+      for (const node of nonIndexedNodes) {
+        for (const neighborIdx of this._rbushWithin(
+          node[0],
+          node[1],
+          zoom,
+          searchRadius,
+        )) {
+          if (!result.has(neighborIdx)) {
+            this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM] = max(
+              zoom,
+              this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM],
+            );
+            result.add(neighborIdx);
+            notVisited.push(neighborIdx);
+          }
+        }
+      }
+    }
+
+    while (notVisited.length > 0) {
+      const nodeIdx = notVisited.pop();
+      for (const neighborIdx of this._rbushWithin(
+        this.clusterData[zoom][nodeIdx * stride],
+        this.clusterData[zoom][nodeIdx * stride + 1],
+        zoom,
+        searchRadius,
+      )) {
+        if (!result.has(neighborIdx)) {
+          this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM] = max(
+            zoom,
+            this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM],
+          );
+          result.add(neighborIdx);
+          notVisited.push(neighborIdx);
+        }
+      }
+    }
+    return [...result];
+  }
+
+  _removeParentsOfChildren(zoom, childNodes) {
+    const { stride } = this.options;
+    const removedParentIds = new Set();
+    const removedParentNodes = new Array();
+    const r = this._calculateRadius(zoom);
+
+    for (const node of childNodes) {
+      const parentIdxs = this._rbushWithin(node[0], node[1], zoom, r).filter(
+        (idx) =>
+          !removedParentIds.has(
+            this.clusterData[zoom][idx * stride + OFFSET_ID] &&
+              (node[OFFSET_ID] ===
+                this.clusterData[zoom][idx * stride + OFFSET_ID] ||
+                node[OFFSET_PARENT] ===
+                  this.clusterData[zoom][idx * stride + OFFSET_ID]),
+          ),
+      );
+
+      for (const idx of parentIdxs) {
+        removedParentIds.add(this.clusterData[zoom][idx * stride + OFFSET_ID]);
+        removedParentNodes.push(
+          this.clusterData[zoom].slice(idx * stride, (idx + 1) * stride),
+        );
+        this._removeNodeFromTree(zoom, idx);
+      }
+    }
+    return removedParentNodes;
+  }
+
+  _removeAncestors(firstZoom, descendantNodes, removals) {
+    const { minZoom } = this.options;
+    for (let zoom = firstZoom; zoom >= minZoom; zoom--) {
+      if (descendantNodes.length === 0) break;
+      descendantNodes = this._removeParentsOfChildren(zoom, descendantNodes);
+      removals[zoom].push(...descendantNodes);
+    }
   }
 
   _rbushWithin(ax, ay, zoom, radius) {
@@ -515,6 +661,11 @@ export default class Supercluster {
   _linearSearchInPoints(id) {
     const index = this.points.findIndex((p) => this.getId(p) === id);
     return index !== -1 ? index : null;
+  }
+
+  _calculateRadius(zoom) {
+    const { radius, extent, zoomFactor } = this.options;
+    return radius / (extent * Math.pow(zoomFactor, zoom));
   }
 }
 
