@@ -261,6 +261,22 @@ export default class Supercluster {
     return expansionZoom;
   }
 
+  printClusterData() {
+    const { maxZoom, minZoom } = this.options;
+    for (let zoom = maxZoom + 1; zoom >= minZoom; zoom--) {
+      const data = this.clusterData[zoom];
+      console.log(`Zoom ${zoom} (${data.length / this.stride}):`);
+      for (let i = 0; i < data.length; i += this.stride) {
+        console.log(`  Position: (${data[i]}, ${data[i + 1]})`);
+        console.log(`  ID: ${data[i + OFFSET_ID]}`);
+        console.log(`  Parent: ${data[i + OFFSET_PARENT]}`);
+        console.log(`  NumPoints: ${data[i + OFFSET_NUM]}`);
+        console.log(`  LastZoom: ${data[i + OFFSET_ZOOM]}`);
+        console.log("");
+      }
+    }
+  }
+
   updatePointProperties(id, properties) {
     const idx = this._linearSearchInPoints(id);
     if (!idx) throw new Error("No point with the given id could be found.");
@@ -473,8 +489,11 @@ export default class Supercluster {
           numPoints,
         ];
         if (reduce) currentNodeData.push(clusterPropIndex);
-        const idx = this._addNodeToTree(zoom, currentNodeData);
-        nextIndexData.push([wx / numPoints, wy / numPoints, idx]);
+        nextIndexData.push([
+          wx / numPoints,
+          wy / numPoints,
+          this._addNodeToTree(zoom, currentNodeData),
+        ]);
       } else {
         // left points as unclustered
 
@@ -563,8 +582,16 @@ export default class Supercluster {
   }
 
   _removeNodeFromTree(zoom, idx) {
-    this.trees[zoom].remove([null, null, idx], (a, b) => a[2] === b[2]);
-    for (let i = idx * this.stride; i < (idx + 1) * this.stride; i++) {
+    const stride = this.stride;
+    this.trees[zoom].remove(
+      [
+        this.clusterData[zoom][idx * stride],
+        this.clusterData[zoom][idx * stride + 1],
+        idx,
+      ],
+      (a, b) => a[2] === b[2],
+    );
+    for (let i = idx * stride; i < (idx + 1) * stride; i++) {
       this.clusterData[zoom][i] = null;
     }
     this.emptyIndices[zoom].push(idx);
@@ -627,12 +654,12 @@ export default class Supercluster {
       const parentIdxs = this._rbushWithin(node[0], node[1], zoom, r).filter(
         (idx) =>
           !removedParentIds.has(
-            this.clusterData[zoom][idx * stride + OFFSET_ID] &&
-              (node[OFFSET_ID] ===
-                this.clusterData[zoom][idx * stride + OFFSET_ID] ||
-                node[OFFSET_PARENT] ===
-                  this.clusterData[zoom][idx * stride + OFFSET_ID]),
-          ),
+            this.clusterData[zoom][idx * stride + OFFSET_ID],
+          ) &&
+          (node[OFFSET_ID] ===
+            this.clusterData[zoom][idx * stride + OFFSET_ID] ||
+            node[OFFSET_PARENT] ===
+              this.clusterData[zoom][idx * stride + OFFSET_ID]),
       );
 
       for (const idx of parentIdxs) {
