@@ -64,3 +64,8 @@ markers.on("click", (e) => {
     });
   }
 });
+
+function addPoint() {
+  worker.postMessage({ addPoint: true });
+  update();
+}
