@@ -261,22 +261,6 @@ export default class Supercluster {
     return expansionZoom;
   }
 
-  printClusterData() {
-    const { maxZoom, minZoom } = this.options;
-    for (let zoom = maxZoom + 1; zoom >= minZoom; zoom--) {
-      const data = this.clusterData[zoom];
-      console.log(`Zoom ${zoom} (${data.length / this.stride}):`);
-      for (let i = 0; i < data.length; i += this.stride) {
-        console.log(`  Position: (${data[i]}, ${data[i + 1]})`);
-        console.log(`  ID: ${data[i + OFFSET_ID]}`);
-        console.log(`  Parent: ${data[i + OFFSET_PARENT]}`);
-        console.log(`  NumPoints: ${data[i + OFFSET_NUM]}`);
-        console.log(`  LastZoom: ${data[i + OFFSET_ZOOM]}`);
-        console.log("");
-      }
-    }
-  }
-
   updatePointProperties(id, properties) {
     const idx = this._linearSearchInPoints(id);
     if (idx === null)
@@ -482,6 +466,7 @@ export default class Supercluster {
         let clusterPropIndex = -1;
 
         // encode both zoom and point index on which the cluster originated
+        // we use negative ids for clusters because we don't want id collisions between points and clusters
         const id = -((((i / stride) | 0) << 5) + (zoom + 1));
 
         for (const neighborId of neighborIds) {
@@ -618,9 +603,7 @@ export default class Supercluster {
       ],
       (a, b) => a[2] === b[2],
     );
-    for (let i = idx * stride; i < (idx + 1) * stride; i++) {
-      this.clusterData[zoom][i] = null;
-    }
+    this.clusterData[zoom].fill(null, idx * stride, (idx + 1) * stride);
     this.emptyIndices[zoom].push(idx);
   }
 
@@ -645,35 +628,8 @@ export default class Supercluster {
     const result = new Set();
     const notVisited = [...elementIdxs];
 
-    if (nonIndexedNodes) {
-      for (const node of nonIndexedNodes) {
-        for (const neighborIdx of this._rbushWithin(
-          node[0],
-          node[1],
-          zoom,
-          searchRadius,
-        )) {
-          if (!result.has(neighborIdx)) {
-            this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM] =
-              Math.max(
-                zoom,
-                this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM],
-              );
-            result.add(neighborIdx);
-            notVisited.push(neighborIdx);
-          }
-        }
-      }
-    }
-
-    while (notVisited.length > 0) {
-      const nodeIdx = notVisited.pop();
-      for (const neighborIdx of this._rbushWithin(
-        this.clusterData[zoom][nodeIdx * stride],
-        this.clusterData[zoom][nodeIdx * stride + 1],
-        zoom,
-        searchRadius,
-      )) {
+    const visitPosition = (x, y) => {
+      for (const neighborIdx of this._rbushWithin(x, y, zoom, searchRadius)) {
         if (!result.has(neighborIdx)) {
           this.clusterData[zoom][neighborIdx * stride + OFFSET_ZOOM] = Math.max(
             zoom,
@@ -683,6 +639,19 @@ export default class Supercluster {
           notVisited.push(neighborIdx);
         }
       }
+    };
+
+    if (nonIndexedNodes) {
+      for (const node of nonIndexedNodes) {
+        visitPosition(node[0], node[1]);
+      }
+    }
+    while (notVisited.length > 0) {
+      const nodeIdx = notVisited.pop();
+      visitPosition(
+        this.clusterData[zoom][nodeIdx * stride],
+        this.clusterData[zoom][nodeIdx * stride + 1],
+      );
     }
     return [...result];
   }
@@ -718,8 +687,11 @@ export default class Supercluster {
 
   _removeAncestors(firstZoom, descendantNodes, removals) {
     const { minZoom } = this.options;
-    for (let zoom = firstZoom; zoom >= minZoom; zoom--) {
-      if (descendantNodes.length === 0) break;
+    for (
+      let zoom = firstZoom;
+      zoom >= minZoom && descendantNodes.length !== 0;
+      zoom--
+    ) {
       descendantNodes = this._removeParentsOfChildren(zoom, descendantNodes);
       removals[zoom].push(...descendantNodes);
     }
@@ -746,15 +718,29 @@ export default class Supercluster {
   }
 
   _linearSearchInPoints(id) {
-    const index = this.points.findIndex((p) =>
-      p ? this.getId(p) === id : false,
-    );
+    const index = this.points.findIndex((p) => p && this.getId(p) === id);
     return index !== -1 ? index : null;
   }
 
   _calculateRadius(zoom) {
     const { radius, extent, zoomFactor } = this.options;
     return radius / (extent * Math.pow(zoomFactor, zoom));
+  }
+
+  _printClusterData() {
+    const { maxZoom, minZoom } = this.options;
+    for (let zoom = maxZoom + 1; zoom >= minZoom; zoom--) {
+      const data = this.clusterData[zoom];
+      console.log(`Zoom ${zoom} (${data.length / this.stride}):`);
+      for (let i = 0; i < data.length; i += this.stride) {
+        console.log(`  Position: (${data[i]}, ${data[i + 1]})`);
+        console.log(`  ID: ${data[i + OFFSET_ID]}`);
+        console.log(`  Parent: ${data[i + OFFSET_PARENT]}`);
+        console.log(`  NumPoints: ${data[i + OFFSET_NUM]}`);
+        console.log(`  LastZoom: ${data[i + OFFSET_ZOOM]}`);
+        console.log("");
+      }
+    }
   }
 }
 
