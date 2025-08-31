@@ -5,7 +5,11 @@ _This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/
 A Node.js library for fast and mutable geospatial point clustering.
 
 ```js
-const index = new Supercluster({ radius: 40, maxZoom: 16 , getId: (point) => point.id});
+const index = new Supercluster({
+  radius: 40,
+  maxZoom: 16,
+  getId: (point) => point.id,
+});
 index.load(points);
 
 const clusters = index.getClusters([-180, -85, 180, 85], 2);
@@ -63,6 +67,7 @@ Updates the point in the cluster with the same `id` (according to `getId`), with
 Adds the given `point` to the cluster. Just like `load()`, the given point must be a [GeoJSON Feature](https://tools.ietf.org/html/rfc7946#section-3.2) with its `geometry` a [GeoJSON Point](https://tools.ietf.org/html/rfc7946#section-3.1.2).
 
 #### `removePoint(id)`
+
 Removes the point with the same `id` (according to `getId`) from the cluster.
 
 ## Options
