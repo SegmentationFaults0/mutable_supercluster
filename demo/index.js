@@ -64,3 +64,11 @@ markers.on("click", (e) => {
     });
   }
 });
+
+function addPoint() {
+  worker.postMessage({ addPoint: true });
+}
+
+function removePoint() {
+  worker.postMessage({ removePoint: true });
+}

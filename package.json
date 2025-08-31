@@ -1,6 +1,6 @@
 {
   "name": "mutable-supercluster",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "A library for fast and mutable geospatial point clustering.",
   "main": "dist/mutable-supercluster.js",
   "type": "module",

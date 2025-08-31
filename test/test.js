@@ -47,7 +47,7 @@ test("returns children of a cluster", () => {
     structuredClone(places.features),
   );
   const childCounts = index
-    .getChildren(164)
+    .getChildren(-1)
     .map((p) => p.properties.point_count || 1);
   assert.deepEqual(childCounts, [1, 7, 2, 6]);
 });
@@ -56,7 +56,7 @@ test("returns leaves of a cluster", () => {
   const index = new Supercluster({ getId }).load(
     structuredClone(places.features),
   );
-  const leafNames = index.getLeaves(164, 10, 5).map((p) => p.properties.name);
+  const leafNames = index.getLeaves(-1, 10, 5).map((p) => p.properties.name);
   assert.deepEqual(leafNames, [
     "I. de Cozumel",
     "Cabo Gracias a Dios",
@@ -98,7 +98,7 @@ test("getLeaves handles null-property features", () => {
       },
     ]),
   );
-  const leaves = index.getLeaves(165, 1, 12);
+  const leaves = index.getLeaves(-1, 1, 12);
   assert.equal(leaves[0].properties, null);
 });
 
@@ -106,11 +106,11 @@ test("returns cluster expansion zoom", () => {
   const index = new Supercluster({ getId }).load(
     structuredClone(places.features),
   );
-  assert.deepEqual(index.getClusterExpansionZoom(164), 1);
-  assert.deepEqual(index.getClusterExpansionZoom(196), 1);
-  assert.deepEqual(index.getClusterExpansionZoom(581), 2);
-  assert.deepEqual(index.getClusterExpansionZoom(1157), 2);
-  assert.deepEqual(index.getClusterExpansionZoom(4134), 3);
+  assert.deepEqual(index.getClusterExpansionZoom(-1), 1);
+  assert.deepEqual(index.getClusterExpansionZoom(-33), 1);
+  assert.deepEqual(index.getClusterExpansionZoom(-418), 2);
+  assert.deepEqual(index.getClusterExpansionZoom(-994), 2);
+  assert.deepEqual(index.getClusterExpansionZoom(-3971), 3);
 });
 
 test("returns cluster expansion zoom for maxZoom", () => {
@@ -121,7 +121,7 @@ test("returns cluster expansion zoom for maxZoom", () => {
     getId,
   }).load(structuredClone(places.features));
 
-  assert.deepEqual(index.getClusterExpansionZoom(2504), 5);
+  assert.deepEqual(index.getClusterExpansionZoom(-2341), 5);
 });
 
 test("aggregates cluster properties with reduce", () => {
@@ -286,7 +286,7 @@ test("update properties succeeds", () => {
   const index = new Supercluster({ getId }).load(
     structuredClone(places.features),
   );
-  const leafNames = index.getLeaves(164, 3, 5).map((p) => p.properties.name);
+  const leafNames = index.getLeaves(-1, 3, 5).map((p) => p.properties.name);
   assert.deepEqual(leafNames, [
     "I. de Cozumel",
     "Cabo Gracias a Dios",
@@ -294,7 +294,7 @@ test("update properties succeeds", () => {
   ]);
   // Update name of point 160, currently named I. de Cozumel.
   index.updatePointProperties(160, { properties: { name: "New York" } });
-  const newLeafNames = index.getLeaves(164, 3, 5).map((p) => p.properties.name);
+  const newLeafNames = index.getLeaves(-1, 3, 5).map((p) => p.properties.name);
   assert.deepEqual(newLeafNames, [
     "New York",
     "Cabo Gracias a Dios",
@@ -309,7 +309,7 @@ test("update properties with different location fails", () => {
   // Change location of point 160 and try to update.
   index.updatePointProperties(160, { geometry: { coordinates: [0, 0] } });
   // Result should not have changed.
-  const leafNames = index.getLeaves(164, 3, 5).map((p) => p.properties.name);
+  const leafNames = index.getLeaves(-1, 3, 5).map((p) => p.properties.name);
   assert.deepEqual(leafNames, [
     "I. de Cozumel",
     "Cabo Gracias a Dios",

@@ -1,11 +1,15 @@
 # mutable-supercluster [![Test](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/test.yml/badge.svg)](https://github.com/SegmentationFaults0/mutable_supercluster/actions/workflows/test.yml) ![NPM Version](https://img.shields.io/npm/v/mutable-supercluster)
 
-_This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster)._
+_This repository is a fork from [mapbox/supercluster](https://github.com/mapbox/supercluster), further inspired by [rorystephenson/supercluster_dart](https://github.com/rorystephenson/supercluster_dart.git)._
 
 A Node.js library for fast and mutable geospatial point clustering.
 
 ```js
-const index = new Supercluster({ radius: 40, maxZoom: 16 });
+const index = new Supercluster({
+  radius: 40,
+  maxZoom: 16,
+  getId: (point) => point.id,
+});
 index.load(points);
 
 const clusters = index.getClusters([-180, -85, 180, 85], 2);
@@ -57,6 +61,14 @@ Returns the zoom on which the cluster expands into several children (useful for 
 #### `updatePointProperties(id, properties)`
 
 Updates the point in the cluster with the same `id` (according to `getId`), with the given `properties`. If the given `id` is not present in the cluster, this method will throw an error. The location of the point (`point.geometry.coordinates`) can not be updated through this method.
+
+#### `addPoint(point)`
+
+Adds the given `point` to the cluster. Just like `load()`, the given point must be a [GeoJSON Feature](https://tools.ietf.org/html/rfc7946#section-3.2) with its `geometry` a [GeoJSON Point](https://tools.ietf.org/html/rfc7946#section-3.1.2).
+
+#### `removePoint(id)`
+
+Removes the point with the same `id` (according to `getId`) from the cluster.
 
 ## Options
 
