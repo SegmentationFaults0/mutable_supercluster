@@ -6,7 +6,8 @@ const now = Date.now();
 let geojson;
 
 let index;
-let counter = 10;
+let addCounter = 10;
+let removeCounter = 0;
 
 getJSON("../test/fixtures/places.json", () => {
   console.log(
@@ -32,10 +33,17 @@ self.onmessage = function (e) {
       center: e.data.center,
     });
   } else if (e.data.addPoint) {
-    if (counter < geojson.features.length) {
-      index.addPoint(geojson.features[counter]);
-      counter++;
+    if (addCounter < geojson.features.length) {
+      index.addPoint(geojson.features[addCounter]);
+      addCounter++;
     }
+    postMessage({ ready: true });
+  } else if (e.data.removePoint) {
+    if (removeCounter < addCounter) {
+      index.removePoint(removeCounter);
+      removeCounter++;
+    }
+    postMessage({ ready: true });
   } else if (e.data) {
     postMessage(index.getClusters(e.data.bbox, e.data.zoom));
   }

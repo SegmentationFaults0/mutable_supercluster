@@ -67,5 +67,8 @@ markers.on("click", (e) => {
 
 function addPoint() {
   worker.postMessage({ addPoint: true });
-  update();
+}
+
+function removePoint() {
+  worker.postMessage({ removePoint: true });
 }

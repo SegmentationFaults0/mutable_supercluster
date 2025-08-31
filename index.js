@@ -279,7 +279,8 @@ export default class Supercluster {
 
   updatePointProperties(id, properties) {
     const idx = this._linearSearchInPoints(id);
-    if (!idx) throw new Error("No point with the given id could be found.");
+    if (idx === null)
+      throw new Error("No point with the given id could be found.");
 
     const clonedProperties = structuredClone(properties);
     delete clonedProperties.geometry?.coordinates;
@@ -289,7 +290,7 @@ export default class Supercluster {
   addPoint(point) {
     const { minZoom, maxZoom, reduce, minPoints } = this.options;
     const p = structuredClone(point);
-    this.points.push(p);
+    const pointIdx = this._addPointToList(p);
     if (!p.geometry) return;
     const [lng, lat] = p.geometry.coordinates;
     const x = fround(lngX(lng));
@@ -298,7 +299,7 @@ export default class Supercluster {
       x,
       y, // projected point coordinates
       Infinity, // the last zoom the point was processed at
-      this.points.length - 1, // index of the source feature in the original input array
+      pointIdx, // index of the source feature in the original input array
       null, // parent cluster id
       1, // number of points in a cluster
     ];
@@ -321,6 +322,32 @@ export default class Supercluster {
       idx = this._addNodeToTree(z, newNodeData);
       this.trees[z].insert([x, y, idx]);
     }
+  }
+
+  removePoint(id) {
+    const { maxZoom } = this.options;
+    const stride = this.stride;
+    const pointIdx = this._linearSearchInPoints(id);
+    if (pointIdx === null) return;
+    this._removePointFromList(pointIdx);
+    const removedNode = this.clusterData[maxZoom + 1].slice(
+      pointIdx * stride,
+      (pointIdx + 1) * stride,
+    );
+    this._removeNodeFromTree(maxZoom + 1, pointIdx);
+
+    const ancestorRemovals = Array.from(
+      { length: maxZoom + 2 },
+      () => new Array(),
+    );
+    ancestorRemovals[maxZoom + 1].push(removedNode);
+    this._removeAncestors(
+      maxZoom,
+      ancestorRemovals[maxZoom + 1],
+      ancestorRemovals,
+    );
+
+    this._recluster(maxZoom, [], ancestorRemovals);
   }
 
   _appendLeaves(result, clusterId, limit, offset, skipped) {
@@ -522,12 +549,13 @@ export default class Supercluster {
 
   _recluster(firstClusteringZoom, childLayerElements, ancestorRemovals) {
     const { minZoom, maxZoom } = this.options;
-    ancestorRemovals ??= Array.from({ length: maxZoom + 1 }, () => new Array());
+    ancestorRemovals ??= Array.from({ length: maxZoom + 2 }, () => new Array());
 
     let contiguousChildIdxs = this._visitContiguous(
       firstClusteringZoom + 1,
       this._calculateRadius(firstClusteringZoom),
       childLayerElements,
+      ancestorRemovals[firstClusteringZoom + 1],
     );
 
     for (let zoom = firstClusteringZoom; zoom >= minZoom; zoom--) {
@@ -568,9 +596,8 @@ export default class Supercluster {
   }
 
   _addNodeToTree(zoom, nodeData) {
-    let idx = -1;
-    if (this.emptyIndices[zoom].length > 0) {
-      idx = this.emptyIndices[zoom].pop();
+    let idx = this.emptyIndices[zoom].pop();
+    if (idx !== undefined) {
       for (let i = 0; i < this.stride; i++) {
         this.clusterData[zoom][idx * this.stride + i] = nodeData[i];
       }
@@ -595,6 +622,22 @@ export default class Supercluster {
       this.clusterData[zoom][i] = null;
     }
     this.emptyIndices[zoom].push(idx);
+  }
+
+  _addPointToList(point) {
+    let idx = this.emptyPointIndices.pop();
+    if (idx !== undefined) {
+      this.points[idx] = point;
+      return idx;
+    }
+    idx = this.points.length;
+    this.points.push(point);
+    return idx;
+  }
+
+  _removePointFromList(idx) {
+    this.points[idx] = null;
+    this.emptyPointIndices.push(idx);
   }
 
   _visitContiguous(zoom, searchRadius, elementIdxs, nonIndexedNodes) {
@@ -703,7 +746,9 @@ export default class Supercluster {
   }
 
   _linearSearchInPoints(id) {
-    const index = this.points.findIndex((p) => this.getId(p) === id);
+    const index = this.points.findIndex((p) =>
+      p ? this.getId(p) === id : false,
+    );
     return index !== -1 ? index : null;
   }
 
