@@ -68,10 +68,10 @@ export default class Supercluster {
     if (log) console.time(timerId);
 
     this.trees = new Array(maxZoom + 2);
-    this.clusterData = Array.from({ length: maxZoom + 2 }, () => new Array());
-    this.emptyIndices = Array.from({ length: maxZoom + 2 }, () => new Array());
+    this.clusterData = Array.from({ length: maxZoom + 2 }, () => []);
+    this.emptyIndices = Array.from({ length: maxZoom + 2 }, () => []);
     this.points = structuredClone(points);
-    this.emptyPointIndices = new Array();
+    this.emptyPointIndices = [];
     points.length = 0;
 
     // generate a cluster object for each point and index input points into a R-tree
@@ -320,10 +320,7 @@ export default class Supercluster {
     );
     this._removeNodeFromTree(maxZoom + 1, pointIdx);
 
-    const ancestorRemovals = Array.from(
-      { length: maxZoom + 2 },
-      () => new Array(),
-    );
+    const ancestorRemovals = Array.from({ length: maxZoom + 2 }, () => []);
     ancestorRemovals[maxZoom + 1].push(removedNode);
     this._removeAncestors(
       maxZoom,
@@ -534,7 +531,7 @@ export default class Supercluster {
 
   _recluster(firstClusteringZoom, childLayerElements, ancestorRemovals) {
     const { minZoom, maxZoom } = this.options;
-    ancestorRemovals ??= Array.from({ length: maxZoom + 2 }, () => new Array());
+    ancestorRemovals ??= Array.from({ length: maxZoom + 2 }, () => []);
 
     let contiguousChildIdxs = this._visitContiguous(
       firstClusteringZoom + 1,
@@ -659,7 +656,7 @@ export default class Supercluster {
   _removeParentsOfChildren(zoom, childNodes) {
     const stride = this.stride;
     const removedParentIds = new Set();
-    const removedParentNodes = new Array();
+    const removedParentNodes = [];
     const r = this._calculateRadius(zoom);
 
     for (const node of childNodes) {
