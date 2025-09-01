@@ -65,10 +65,12 @@ markers.on("click", (e) => {
   }
 });
 
+// eslint-disable-next-line no-unused-vars
 function addPoint() {
   worker.postMessage({ addPoint: true });
 }
 
+// eslint-disable-next-line no-unused-vars
 function removePoint() {
   worker.postMessage({ removePoint: true });
 }
